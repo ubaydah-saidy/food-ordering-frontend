@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Check, Sparkles, Filter, Clock, Flame, Utensils } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
-import { restaurantService } from '../../services/restaurantService';
+import { restaurantService } from '../../services/restaurantApi';
 import { AnnouncementsBanner } from '../../components/AnnouncementsBanner';
 
 export const CustomerDashboard = ({ onNavigateToCart }) => {
@@ -13,18 +13,19 @@ export const CustomerDashboard = ({ onNavigateToCart }) => {
 
   const { addToCart } = useCart();
 
-  const loadFoods = () => {
+  const loadFoods = async () => {
     setLoading(true);
-    const data = restaurantService.getFoods(category, searchQuery);
-    setFoods(data);
-    setLoading(false);
+    try {
+      setFoods(await restaurantService.getFoods(category, searchQuery));
+    } catch {
+      setFoods([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadFoods();
-    const handleUpdate = () => loadFoods();
-    window.addEventListener('restaurant_db_updated', handleUpdate);
-    return () => window.removeEventListener('restaurant_db_updated', handleUpdate);
   }, [category, searchQuery]);
 
   const handleAdd = (food) => {

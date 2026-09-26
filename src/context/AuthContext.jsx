@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { restaurantService } from '../services/restaurantService';
+import { restaurantService } from '../services/restaurantApi';
 
 const AuthContext = createContext();
 
@@ -9,7 +9,6 @@ export const AuthProvider = ({ children }) => {
     try {
       const saved = localStorage.getItem('restaurant_user_v2');
       if (saved) return JSON.parse(saved);
-      // Clean old dummy user from storage if exists
       localStorage.removeItem('restaurant_user');
       return null;
     } catch {
@@ -20,8 +19,8 @@ export const AuthProvider = ({ children }) => {
   // Global detected location state (locked GPS)
   const [detectedLocation, setDetectedLocation] = useState({
     loading: false,
-    coords: { lat: -6.8185, lng: 39.2745 },
-    address: 'Kariakoo, Msimbazi St, Dar es Salaam',
+    coords: null,
+    address: '',
     accuracy: null,
     detectedAt: null,
     error: null
@@ -30,6 +29,18 @@ export const AuthProvider = ({ children }) => {
   // Detect GPS Location on mount
   useEffect(() => {
     detectLocation();
+  }, []);
+
+  useEffect(() => {
+    restaurantService.currentUser()
+      .then((sessionUser) => {
+        setUser(sessionUser);
+        localStorage.setItem('restaurant_user_v2', JSON.stringify(sessionUser));
+      })
+      .catch(() => {
+        setUser(null);
+        localStorage.removeItem('restaurant_user_v2');
+      });
   }, []);
 
   const detectLocation = () => {
@@ -99,8 +110,8 @@ export const AuthProvider = ({ children }) => {
     );
   };
 
-  const login = (usernameOrPhone, password, role) => {
-    const res = restaurantService.login(usernameOrPhone, password, role);
+  const login = async (usernameOrPhone, password, role) => {
+    const res = await restaurantService.login(usernameOrPhone, password, role);
     if (res.success) {
       setUser(res.user);
       localStorage.setItem('restaurant_user_v2', JSON.stringify(res.user));
@@ -108,8 +119,8 @@ export const AuthProvider = ({ children }) => {
     return res;
   };
 
-  const registerCustomer = (formData) => {
-    const res = restaurantService.registerCustomer({
+  const registerCustomer = async (formData) => {
+    const res = await restaurantService.registerCustomer({
       ...formData,
       address: detectedLocation.address,
       coords: detectedLocation.coords
@@ -121,8 +132,8 @@ export const AuthProvider = ({ children }) => {
     return res;
   };
 
-  const registerDeliveryStaff = (formData) => {
-    const res = restaurantService.registerDeliveryStaff(formData);
+  const registerDeliveryStaff = async (formData) => {
+    const res = await restaurantService.registerDeliveryStaff(formData);
     if (res.success) {
       setUser(res.user);
       localStorage.setItem('restaurant_user_v2', JSON.stringify(res.user));
@@ -130,8 +141,8 @@ export const AuthProvider = ({ children }) => {
     return res;
   };
 
-  const saveOrUpdateProfile = (profileData) => {
-    const res = restaurantService.saveOrUpdateCustomerProfile(user?.id, {
+  const saveOrUpdateProfile = async (profileData) => {
+    const res = await restaurantService.saveOrUpdateCustomerProfile(user?.id, {
       ...profileData,
       address: detectedLocation.address,
       coords: detectedLocation.coords
@@ -143,7 +154,8 @@ export const AuthProvider = ({ children }) => {
     return res;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await restaurantService.logout();
     setUser(null);
     localStorage.removeItem('restaurant_user_v2');
   };

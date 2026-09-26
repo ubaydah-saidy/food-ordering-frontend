@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Flame, Megaphone, Star, Truck, HeartHandshake } from 'lucide-react';
-import { restaurantService } from '../services/restaurantService';
+import { restaurantService } from '../services/restaurantApi';
 
 export const TopMarquee = () => {
   const [announcements, setAnnouncements] = useState([]);
 
-  const loadAnnouncements = () => {
-    setAnnouncements(restaurantService.getAnnouncements());
+  const loadAnnouncements = async () => {
+    try {
+      setAnnouncements(await restaurantService.getAnnouncements());
+    } catch {
+      setAnnouncements([]);
+    }
   };
 
   useEffect(() => {
     loadAnnouncements();
-    const handleUpdate = () => loadAnnouncements();
-    window.addEventListener('restaurant_db_updated', handleUpdate);
-    return () => window.removeEventListener('restaurant_db_updated', handleUpdate);
   }, []);
 
   const marqueeContent = (

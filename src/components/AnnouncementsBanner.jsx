@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Megaphone, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { restaurantService } from '../services/restaurantService';
+import { restaurantService } from '../services/restaurantApi';
 
 // Shows admin-posted "matangazo" (announcements) at the top of the customer
 // food dashboard. Automatically refreshes whenever the admin posts a new one.
@@ -9,15 +9,16 @@ export const AnnouncementsBanner = () => {
   const [index, setIndex] = useState(0);
   const [dismissed, setDismissed] = useState(false);
 
-  const load = () => {
-    setAnnouncements(restaurantService.getAnnouncements());
+  const load = async () => {
+    try {
+      setAnnouncements(await restaurantService.getAnnouncements());
+    } catch {
+      setAnnouncements([]);
+    }
   };
 
   useEffect(() => {
     load();
-    const handleUpdate = () => load();
-    window.addEventListener('restaurant_db_updated', handleUpdate);
-    return () => window.removeEventListener('restaurant_db_updated', handleUpdate);
   }, []);
 
   useEffect(() => {

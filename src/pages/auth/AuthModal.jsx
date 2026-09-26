@@ -50,12 +50,12 @@ export const AuthModal = ({ isOpen, onClose, initialRole = 'customer', onLoginSu
   const [successMsg, setSuccessMsg] = useState('');
 
   // Handle Login
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    const res = login(loginIdentifier, loginPassword, activeRole);
+    const res = await login(loginIdentifier, loginPassword, activeRole);
     setLoading(false);
 
     if (res.success) {
@@ -67,12 +67,16 @@ export const AuthModal = ({ isOpen, onClose, initialRole = 'customer', onLoginSu
   };
 
   // Handle Customer Self-Registration
-  const handleCustomerRegister = (e) => {
+  const handleCustomerRegister = async (e) => {
     e.preventDefault();
     setError('');
+    if (custPassword.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
     setLoading(true);
 
-    const res = registerCustomer({
+    const res = await registerCustomer({
       fullName: custFullName,
       username: custUsername,
       phone: custPhone,
@@ -93,9 +97,14 @@ export const AuthModal = ({ isOpen, onClose, initialRole = 'customer', onLoginSu
   };
 
   // Handle Delivery Staff Self-Registration
-  const handleStaffRegister = (e) => {
+  const handleStaffRegister = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (staffPassword.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
 
     // Strict validation: Email is strictly mandatory!
     if (!staffEmail.trim()) {
@@ -104,7 +113,7 @@ export const AuthModal = ({ isOpen, onClose, initialRole = 'customer', onLoginSu
     }
 
     setLoading(true);
-    const res = registerDeliveryStaff({
+    const res = await registerDeliveryStaff({
       fullName: staffFullName,
       phone: staffPhone,
       email: staffEmail,
@@ -123,13 +132,6 @@ export const AuthModal = ({ isOpen, onClose, initialRole = 'customer', onLoginSu
     } else {
       setError(res.error || 'Failed to complete registration.');
     }
-  };
-
-  // Admin Quick Credentials Helper
-  const fillAdminCredentials = () => {
-    setLoginIdentifier('ABDALLAH SAIDY');
-    setLoginPassword('abdallah2018');
-    setError('');
   };
 
   return (
@@ -223,7 +225,7 @@ export const AuthModal = ({ isOpen, onClose, initialRole = 'customer', onLoginSu
 
                 <button
                   type="button"
-                  onClick={() => { setActiveRole('admin'); fillAdminCredentials(); }}
+                  onClick={() => { setActiveRole('admin'); setLoginIdentifier(''); setLoginPassword(''); setError(''); }}
                   className={`py-2 px-1 rounded-xl text-xs font-bold transition flex flex-col items-center gap-1 ${
                     activeRole === 'admin'
                       ? 'bg-purple-600 text-white shadow-md'
@@ -272,17 +274,10 @@ export const AuthModal = ({ isOpen, onClose, initialRole = 'customer', onLoginSu
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-600 leading-snug">
-                  This gateway is exclusively restricted to the System Administrator (ABDALLAH SAIDY). Public registration is disabled.
+                  This gateway is restricted to provisioned administrators. Public registration is disabled.
                 </p>
                 <div className="pt-1 flex items-center justify-between border-t border-purple-200/80">
-                  <span className="text-[11px] font-mono text-purple-900 font-bold">User: ABDALLAH SAIDY</span>
-                  <button
-                    type="button"
-                    onClick={fillAdminCredentials}
-                    className="text-[11px] font-bold text-purple-700 hover:text-purple-900 underline"
-                  >
-                    Quick Autofill
-                  </button>
+                  <span className="text-[11px] font-mono text-purple-900 font-bold">Authorized administrators only</span>
                 </div>
               </div>
 
@@ -294,7 +289,7 @@ export const AuthModal = ({ isOpen, onClose, initialRole = 'customer', onLoginSu
                     <input
                       type="text"
                       required
-                      placeholder="ABDALLAH SAIDY"
+                      placeholder="Admin username"
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-purple-500"
@@ -430,7 +425,8 @@ export const AuthModal = ({ isOpen, onClose, initialRole = 'customer', onLoginSu
                       <input
                         type="password"
                         required
-                        placeholder="••••••••"
+                        placeholder="At least 8 characters"
+                        maxLength={100}
                         value={custPassword}
                         onChange={(e) => setCustPassword(e.target.value)}
                         className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-amber-500"
@@ -628,7 +624,8 @@ export const AuthModal = ({ isOpen, onClose, initialRole = 'customer', onLoginSu
                     <input
                       type="password"
                       required
-                      placeholder="Create your security password"
+                      placeholder="At least 8 characters"
+                      maxLength={100}
                       value={staffPassword}
                       onChange={(e) => setStaffPassword(e.target.value)}
                       className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500"

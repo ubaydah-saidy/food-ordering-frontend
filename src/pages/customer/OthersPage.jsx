@@ -10,27 +10,31 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { restaurantService } from '../../services/restaurantService';
+import { restaurantService } from '../../services/restaurantApi';
 
 export const OthersPage = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('notifications');
   const [notifications, setNotifications] = useState([]);
 
-  const loadNotifs = () => {
-    const data = restaurantService.getNotifications(user?.id);
-    setNotifications(data);
+  const loadNotifs = async () => {
+    try {
+      setNotifications(await restaurantService.getNotifications());
+    } catch {
+      setNotifications([]);
+    }
   };
 
   useEffect(() => {
     loadNotifs();
-    const handleUpdate = () => loadNotifs();
-    window.addEventListener('restaurant_db_updated', handleUpdate);
-    return () => window.removeEventListener('restaurant_db_updated', handleUpdate);
   }, [user]);
 
-  const markAsRead = (id) => {
-    restaurantService.markNotificationRead(id);
+  const markAsRead = async (id) => {
+    try {
+      await restaurantService.markNotificationRead(id);
+    } catch {
+      return;
+    }
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 

@@ -12,31 +12,33 @@ import {
   ChefHat
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { restaurantService } from '../../services/restaurantService';
+import { restaurantService } from '../../services/restaurantApi';
 
 export const DeliveryDashboard = () => {
   const { user } = useAuth();
   const [assignedOrders, setAssignedOrders] = useState([]);
   const [statusUpdatingId, setStatusUpdatingId] = useState(null);
 
-  const loadAssigned = () => {
-    const filter = user?.id ? { staffId: user.id } : {};
-    const data = restaurantService.getOrders(filter);
-    setAssignedOrders(data);
+  const loadAssigned = async () => {
+    try {
+      setAssignedOrders(await restaurantService.getAssignedOrders());
+    } catch {
+      setAssignedOrders([]);
+    }
   };
 
   useEffect(() => {
     loadAssigned();
-    const handleUpdate = () => loadAssigned();
-    window.addEventListener('restaurant_db_updated', handleUpdate);
-    return () => window.removeEventListener('restaurant_db_updated', handleUpdate);
   }, [user]);
 
-  const updateOrderStatus = (orderId, newStatus) => {
+  const updateOrderStatus = async (orderId, newStatus) => {
     setStatusUpdatingId(orderId);
-    restaurantService.updateOrderStatus(orderId, newStatus);
-    loadAssigned();
-    setStatusUpdatingId(null);
+    try {
+      await restaurantService.updateOrderStatus(orderId, newStatus);
+      await loadAssigned();
+    } finally {
+      setStatusUpdatingId(null);
+    }
   };
 
   return (
@@ -126,7 +128,9 @@ export const DeliveryDashboard = () => {
                     <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-slate-500 uppercase text-[10px]">Taarifa za Mteja (Customer):</span>
-                        <span className="text-emerald-700 font-bold">Malipo: Yamefanyika ✓</span>
+                        <span className="text-emerald-700 font-bold">
+                          {order.paymentStatus === 'DEMO_SUCCEEDED' ? 'Demo payment (no charge)' : `Malipo: ${order.paymentStatus}`}
+                        </span>
                       </div>
 
                       <div className="font-extrabold text-sm text-slate-900">{order.customer.fullName}</div>

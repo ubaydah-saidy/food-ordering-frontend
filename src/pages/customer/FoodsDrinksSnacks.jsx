@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Utensils, Search, Plus, Check } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
-import { restaurantService } from '../../services/restaurantService';
+import { restaurantService } from '../../services/restaurantApi';
 
 export const FoodsDrinksSnacks = () => {
   const [foods, setFoods] = useState([]);
@@ -11,9 +11,12 @@ export const FoodsDrinksSnacks = () => {
 
   const { addToCart } = useCart();
 
-  const loadFoods = () => {
-    const list = restaurantService.getFoods(selectedCategory, search);
-    setFoods(list);
+  const loadFoods = async () => {
+    try {
+      setFoods(await restaurantService.getFoods(selectedCategory, search));
+    } catch {
+      setFoods([]);
+    }
   };
 
   useEffect(() => {

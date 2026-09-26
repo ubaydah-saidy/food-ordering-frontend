@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
-import { restaurantService } from '../../services/restaurantService';
+import { restaurantService } from '../../services/restaurantApi';
 
 export const MyBills = ({ onOrderSuccess, onCancel }) => {
   const { user, detectedLocation } = useAuth();
@@ -21,10 +21,6 @@ export const MyBills = ({ onOrderSuccess, onCancel }) => {
   const [phoneNumber, setPhoneNumber] = useState(user?.phone?.replace('+255', '').trim() || '712345678');
   
   // Card details
-  const [cardNumber, setCardNumber] = useState('4111 2222 3333 4444');
-  const [cardExpiry, setCardExpiry] = useState('12/28');
-  const [cardCvv, setCardCvv] = useState('789');
-
   // Transaction fee calculation
   const currentBill = checkoutOrder ? checkoutOrder.billAmount : totalAmount;
   const [fees, setFees] = useState({ bill: currentBill || 0, fee: 400, total: (currentBill || 0) + 400 });
@@ -47,6 +43,11 @@ export const MyBills = ({ onOrderSuccess, onCancel }) => {
   }, [methodType, mobileNetwork, currentBill]);
 
   const handlePayNow = async () => {
+    if (!user) {
+      setErrorMsg('Tafadhali ingia kwenye akaunti yako kabla ya kuweka oda.');
+      return;
+    }
+
     if (currentBill <= 0) {
       setErrorMsg('Huna bili ya kulipia. Tafadhali weka chakula kwenye Carts kwanza.');
       return;
@@ -57,63 +58,41 @@ export const MyBills = ({ onOrderSuccess, onCancel }) => {
       return;
     }
 
-    if (methodType === 'card' && (!cardNumber || !cardExpiry || !cardCvv)) {
-      setErrorMsg('Tafadhali kamilisha taarifa zote za kadi ya benki.');
+    if (!detectedLocation.coords || !detectedLocation.address) {
+      setErrorMsg('Tafadhali ruhusu GPS itambue eneo lako kabla ya kuendelea.');
       return;
     }
 
     setErrorMsg('');
     setIsProcessing(true);
 
-    const activeMethod = methodType === 'mobile' ? mobileNetwork : 'Visa / Mastercard (Kadi ya Benki)';
-    const paymentContact = methodType === 'mobile' ? `+255 ${phoneNumber}` : `Kadi: •••• ${cardNumber.slice(-4)}`;
+    const activeMethod = methodType === 'mobile' ? mobileNetwork : 'Visa/Mastercard';
 
     try {
-      // Step 1: Simulated Push notification
+      // Step 1: Demo provider response; no card credentials are sent to the backend.
       setProcessStep(methodType === 'mobile' 
-        ? `Inatuma ujumbe wa malipo kwenye namba +255 ${phoneNumber} (${mobileNetwork})...` 
-        : 'Inathibitisha kadi yako ya benki na mfumo wa malipo...'
+        ? `Demo checkout: ${mobileNetwork} payment flow for +255 ${phoneNumber} (no charge will be made)...` 
+        : 'Demo card checkout (card information is not collected and no charge will be made)...'
       );
       await new Promise(r => setTimeout(r, 1200));
 
-      // Step 2: Simulated PIN / authorization
-      setProcessStep('Malipo yamepokelewa na yanathibitishwa na benki...');
+      setProcessStep('Completing demo checkout. This does not contact a bank or payment provider...');
       await new Promise(r => setTimeout(r, 1200));
 
-      // Step 3: Create order in service with verified ACTIVE CUSTOMER LOCATION
       const itemsToOrder = checkoutOrder ? checkoutOrder.items : cartItems;
-      const orderPayload = {
-        customer: {
-          id: user?.id || `cust-${Date.now()}`,
-          username: user?.username || 'customer',
-          fullName: user?.fullName || 'Valued Customer',
-          phone: user?.phone || `+255 ${phoneNumber}`,
-          email: user?.email || '',
-          address: detectedLocation.address || 'Kariakoo, Dar es Salaam',
-          coords: detectedLocation.coords || { lat: -6.8185, lng: 39.2745 },
-          activeLocation: {
-            address: detectedLocation.address || 'Dar es Salaam, Tanzania',
-            coords: detectedLocation.coords || { lat: -6.8185, lng: 39.2745 },
-            accuracy: detectedLocation.accuracy ? `±${detectedLocation.accuracy}m` : 'GPS Verified',
-            detectedAt: new Date().toLocaleTimeString(),
-            isLiveActive: true
-          }
-        },
-        items: itemsToOrder,
-        billAmount: fees.bill,
-        transactionFee: fees.fee,
-        totalAmount: fees.total,
+      const result = await restaurantService.checkout({
+        items: itemsToOrder.map(item => ({ menuItemId: item.id, quantity: item.quantity })),
         paymentMethod: activeMethod,
-        paymentPhoneOrCard: paymentContact
-      };
-
-      const res = restaurantService.createOrder(orderPayload);
-      if (!res.success) {
-        throw new Error(res.error || 'Imeshindwa kukamilisha oda.');
-      }
+        paymentPhone: methodType === 'mobile' ? `+255${phoneNumber}` : null,
+        deliveryAddress: detectedLocation.address,
+        latitude: detectedLocation.coords.lat,
+        longitude: detectedLocation.coords.lng,
+        locationAccuracyM: detectedLocation.accuracy,
+        locationCapturedAt: detectedLocation.detectedAt ? new Date().toISOString() : null
+      });
 
       setIsProcessing(false);
-      setPaymentSuccessData(res.order);
+      setPaymentSuccessData(result.order);
       clearCart();
       if (setCheckoutOrder) setCheckoutOrder(null);
 
@@ -240,7 +219,7 @@ export const MyBills = ({ onOrderSuccess, onCancel }) => {
               </div>
               <div>
                 <h3 className="font-bold text-slate-900 text-sm sm:text-base">VISA / MASTERCARD</h3>
-                <p className="text-[11px] text-slate-500">Lipa kwa kadi ya Benki</p>
+                <p className="text-[11px] text-slate-500">Demo checkout</p>
               </div>
             </div>
             <input
@@ -251,50 +230,10 @@ export const MyBills = ({ onOrderSuccess, onCancel }) => {
             />
           </div>
 
-          <div className="space-y-4 pt-2">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Namba ya Kadi:
-              </label>
-              <input
-                type="text"
-                placeholder="4111 2222 3333 4444"
-                value={cardNumber}
-                onChange={(e) => setCardNumber(e.target.value)}
-                disabled={methodType !== 'card'}
-                className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-60"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Tarehe (mm/yy):
-                </label>
-                <input
-                  type="text"
-                  placeholder="12/28"
-                  value={cardExpiry}
-                  onChange={(e) => setCardExpiry(e.target.value)}
-                  disabled={methodType !== 'card'}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-60"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  CVV:
-                </label>
-                <input
-                  type="password"
-                  placeholder="•••"
-                  maxLength={4}
-                  value={cardCvv}
-                  onChange={(e) => setCardCvv(e.target.value)}
-                  disabled={methodType !== 'card'}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-60"
-                />
-              </div>
-            </div>
+          <div className="pt-2">
+            <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-xl p-3">
+              Demo checkout only. Card information is not requested or stored, and no charge will be made.
+            </p>
           </div>
         </div>
 
@@ -386,9 +325,9 @@ export const MyBills = ({ onOrderSuccess, onCancel }) => {
               <div className="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/30">
                 <CheckCircle2 className="w-10 h-10" />
               </div>
-              <h3 className="text-2xl font-black text-slate-900">Malipo Yamethibitishwa!</h3>
+              <h3 className="text-2xl font-black text-slate-900">Demo Order Created</h3>
               <p className="text-xs text-slate-500">
-                Asante! Malipo yako yamefanikiwa na oda imetumwa moja kwa moja kwa Admin na jikoni.
+                This is a simulated payment result. No money was charged; connect a payment provider before accepting real orders.
               </p>
             </div>
 
@@ -414,8 +353,8 @@ export const MyBills = ({ onOrderSuccess, onCancel }) => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Hali ya Oda:</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-                  Imelipwa (Admin anagawa Dereva)
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                  Demo paid (no charge)
                 </span>
               </div>
               <div className="flex justify-between pt-1 text-[11px] text-slate-400">

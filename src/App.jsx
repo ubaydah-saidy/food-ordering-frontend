@@ -4,6 +4,7 @@ import { CartProvider } from './context/CartContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { TopMarquee } from './components/TopMarquee';
+import { BackendConnectionStatus } from './components/BackendConnectionStatus';
 
 // Customer pages
 import { CustomerDashboard } from './pages/customer/CustomerDashboard';
@@ -52,6 +53,7 @@ function MainApp() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
+      <BackendConnectionStatus />
       
       {/* 1. TOP ATTRACTIVE RUNNING MARQUEE TICKER (Requirement 7) */}
       <TopMarquee />

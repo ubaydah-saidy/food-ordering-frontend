@@ -12,7 +12,7 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { restaurantService } from '../../services/restaurantService';
+import { restaurantService } from '../../services/restaurantApi';
 
 export const MyOrders = ({ onNavigateToMenu }) => {
   const { user } = useAuth();
@@ -20,19 +20,20 @@ export const MyOrders = ({ onNavigateToMenu }) => {
   const [loading, setLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  const loadOrders = () => {
+  const loadOrders = async () => {
     setLoading(true);
     const filter = user?.id ? { customerId: user.id } : {};
-    const data = restaurantService.getOrders(filter);
-    setOrders(data);
-    setLoading(false);
+    try {
+      setOrders(await restaurantService.getOrders(filter));
+    } catch {
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadOrders();
-    const handleUpdate = () => loadOrders();
-    window.addEventListener('restaurant_db_updated', handleUpdate);
-    return () => window.removeEventListener('restaurant_db_updated', handleUpdate);
   }, [user]);
 
   const getStatusBadge = (status) => {
@@ -196,7 +197,9 @@ export const MyOrders = ({ onNavigateToMenu }) => {
                 <div className="flex items-start gap-3">
                   <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold">✓</div>
                   <div>
-                    <p className="text-xs font-bold text-slate-900">1. Malipo Yamethibitishwa</p>
+                    <p className="text-xs font-bold text-slate-900">
+                      1. {selectedOrder.paymentStatus === 'DEMO_SUCCEEDED' ? 'Demo checkout (hakuna malipo halisi)' : 'Malipo Yamethibitishwa'}
+                    </p>
                     <p className="text-[11px] text-slate-500">Kupitia {selectedOrder.paymentMethod} (TSh {selectedOrder.totalAmount?.toLocaleString()})</p>
                   </div>
                 </div>

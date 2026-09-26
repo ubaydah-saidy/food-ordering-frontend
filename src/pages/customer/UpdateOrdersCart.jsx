@@ -9,16 +9,19 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
-import { restaurantService } from '../../services/restaurantService';
+import { restaurantService } from '../../services/restaurantApi';
 
 export const UpdateOrdersCart = ({ onProceedToBills, onNavigateToOrders }) => {
   const { cartItems, addToCart, removeFromCart, updateQuantity, totalCount, totalAmount } = useCart();
   const [foods, setFoods] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const loadFoods = () => {
-    const list = restaurantService.getFoods(null, searchQuery);
-    setFoods(list);
+  const loadFoods = async () => {
+    try {
+      setFoods(await restaurantService.getFoods(null, searchQuery));
+    } catch {
+      setFoods([]);
+    }
   };
 
   useEffect(() => {

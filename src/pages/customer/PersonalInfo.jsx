@@ -74,7 +74,7 @@ export const PersonalInfo = () => {
     setIsSaving(true);
 
     try {
-      const res = saveOrUpdateProfile({
+      const res = await saveOrUpdateProfile({
         username: username.trim(),
         fullName: fullName.trim(),
         email: email.trim(),

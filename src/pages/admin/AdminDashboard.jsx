@@ -21,7 +21,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { restaurantService } from '../../services/restaurantService';
+import { restaurantService } from '../../services/restaurantApi';
 
 export const AdminDashboard = () => {
   const { user } = useAuth();
@@ -72,24 +72,33 @@ export const AdminDashboard = () => {
     vehicle: 'Boxer MC - MC 123 ABC'
   });
 
-  const loadAllData = () => {
-    setStats(restaurantService.getAdminStats());
-    setOrders(restaurantService.getOrders());
-    setFoods(restaurantService.getFoods());
-    setStaffList(restaurantService.getDeliveryStaff());
-    setCustomersList(restaurantService.getCustomers());
-    setAnnouncements(restaurantService.getAnnouncements());
+  const loadAllData = async () => {
+    try {
+      const [nextStats, nextOrders, nextFoods, nextStaff, nextCustomers, nextAnnouncements] = await Promise.all([
+        restaurantService.getAdminStats(),
+        restaurantService.getOrders(),
+        restaurantService.getAdminMenu(),
+        restaurantService.getDeliveryStaff(),
+        restaurantService.getCustomers(),
+        restaurantService.getAnnouncements()
+      ]);
+      setStats(nextStats);
+      setOrders(nextOrders);
+      setFoods(nextFoods);
+      setStaffList(nextStaff);
+      setCustomersList(nextCustomers);
+      setAnnouncements(nextAnnouncements);
+    } catch (error) {
+      setActionErrorMsg(error.message);
+    }
   };
 
   useEffect(() => {
     loadAllData();
-    const handleUpdate = () => loadAllData();
-    window.addEventListener('restaurant_db_updated', handleUpdate);
-    return () => window.removeEventListener('restaurant_db_updated', handleUpdate);
   }, []);
 
   // Handle Assigning Order to Delivery Staff
-  const handleAssignOrder = (orderId) => {
+  const handleAssignOrder = async (orderId) => {
     const staffId = selectedStaffForOrder[orderId];
     if (!staffId) {
       setActionErrorMsg('Tafadhali chagua dereva kabla ya kubonyeza Assign.');
@@ -97,26 +106,27 @@ export const AdminDashboard = () => {
       return;
     }
 
-    const res = restaurantService.assignOrder(orderId, staffId);
-    if (!res.success) {
-      setActionErrorMsg(res.error || 'Imeshindwa kumkabidhi dereva.');
+    try {
+      await restaurantService.assignOrder(orderId, staffId);
+    } catch (error) {
+      setActionErrorMsg(error.message || 'Imeshindwa kumkabidhi dereva.');
       setTimeout(() => setActionErrorMsg(''), 4000);
       return;
     }
 
-    setActionSuccessMsg(res.message);
+    setActionSuccessMsg('Oda imekabidhiwa kwa dereva.');
     setTimeout(() => setActionSuccessMsg(''), 4000);
     loadAllData();
   };
 
   // Handle Food Submit (Add or Edit)
-  const handleFoodSubmit = (e) => {
+  const handleFoodSubmit = async (e) => {
     e.preventDefault();
     let res;
     if (editingFood) {
-      res = restaurantService.updateFood(editingFood.id, foodForm);
+      res = await restaurantService.updateFood(editingFood.id, foodForm);
     } else {
-      res = restaurantService.addFood(foodForm);
+      res = await restaurantService.addFood(foodForm);
     }
 
     if (!res.success) {
@@ -128,31 +138,33 @@ export const AdminDashboard = () => {
     setShowFoodModal(false);
     setEditingFood(null);
     setFoodForm({ name: '', category: 'Foods', price: '', description: '', image: '', available: true });
-    setActionSuccessMsg(res.message);
+    setActionSuccessMsg('Taarifa za menu zimehifadhiwa.');
     setTimeout(() => setActionSuccessMsg(''), 3000);
     loadAllData();
   };
 
   // Handle Food Delete
-  const handleDeleteFood = (foodId) => {
+  const handleDeleteFood = async (foodId) => {
     if (!window.confirm('Una uhakika unataka kufuta chakula hiki kwenye menu?')) return;
-    const res = restaurantService.deleteFood(foodId);
-    if (res.success) {
-      setActionSuccessMsg(res.message);
+    try {
+      await restaurantService.deleteFood(foodId);
+      setActionSuccessMsg('Bidhaa imeondolewa kwenye menu.');
       setTimeout(() => setActionSuccessMsg(''), 3000);
       loadAllData();
+    } catch (error) {
+      setActionErrorMsg(error.message);
     }
   };
 
   // Handle Admin creating Staff
-  const handleStaffSubmit = (e) => {
+  const handleStaffSubmit = async (e) => {
     e.preventDefault();
     if (!staffForm.email.trim()) {
       setActionErrorMsg('Barua Pepe (Email) ni LAZIMA kwa Delivery Staff.');
       return;
     }
 
-    const res = restaurantService.registerDeliveryStaff(staffForm);
+    const res = await restaurantService.registerStaffByAdmin(staffForm);
     if (!res.success) {
       setActionErrorMsg(res.error);
       setTimeout(() => setActionErrorMsg(''), 3000);
@@ -161,58 +173,66 @@ export const AdminDashboard = () => {
 
     setShowStaffModal(false);
     setStaffForm({ fullName: '', username: '', password: '', phone: '', email: '', address: '', vehicle: 'Boxer MC - MC 123 ABC' });
-    setActionSuccessMsg(res.message);
+    setActionSuccessMsg('Delivery staff account created.');
     setTimeout(() => setActionSuccessMsg(''), 3000);
     loadAllData();
   };
 
   // Delete User (Customer or Delivery Staff)
-  const handleDeleteUser = (userId, userName) => {
+  const handleDeleteUser = async (userId, userName) => {
     if (!window.confirm(`Una uhakika unataka kufuta akaunti ya "${userName}"?`)) return;
-    const res = restaurantService.deleteUser(userId);
-    if (res.success) {
-      setActionSuccessMsg(res.message);
+    try {
+      await restaurantService.deleteUser(userId);
+      setActionSuccessMsg('Akaunti imeondolewa.');
       setTimeout(() => setActionSuccessMsg(''), 3000);
       loadAllData();
+    } catch (error) {
+      setActionErrorMsg(error.message);
     }
   };
 
   // Toggle Staff Status
-  const handleToggleStaffStatus = (staffId) => {
-    const res = restaurantService.toggleStaffStatus(staffId);
-    if (res.success) {
+  const handleToggleStaffStatus = async (staffId) => {
+    try {
+      const res = await restaurantService.toggleStaffStatus(staffId);
       setActionSuccessMsg(`Hali ya dereva imebadilishwa kuwa: ${res.status}`);
       setTimeout(() => setActionSuccessMsg(''), 3000);
       loadAllData();
+    } catch (error) {
+      setActionErrorMsg(error.message);
     }
   };
 
   // Handle Announcement Submit
-  const handleAnnSubmit = (e) => {
+  const handleAnnSubmit = async (e) => {
     e.preventDefault();
     if (!annForm.title.trim() || !annForm.message.trim()) {
       setActionErrorMsg('Tafadhali jaza kichwa cha habari na maelezo ya tangazo.');
       setTimeout(() => setActionErrorMsg(''), 3000);
       return;
     }
-    const res = restaurantService.addAnnouncement(annForm);
-    if (res.success) {
+    try {
+      await restaurantService.addAnnouncement(annForm);
       setShowAnnModal(false);
       setAnnForm({ title: '', message: '', badge: 'OFA MAALUM' });
-      setActionSuccessMsg(res.message);
+      setActionSuccessMsg('Tangazo limechapishwa.');
       setTimeout(() => setActionSuccessMsg(''), 3000);
       loadAllData();
+    } catch (error) {
+      setActionErrorMsg(error.message);
     }
   };
 
   // Handle Announcement Delete
-  const handleDeleteAnn = (id) => {
+  const handleDeleteAnn = async (id) => {
     if (!window.confirm('Una uhakika unataka kufuta tangazo hili?')) return;
-    const res = restaurantService.deleteAnnouncement(id);
-    if (res.success) {
-      setActionSuccessMsg(res.message);
+    try {
+      await restaurantService.deleteAnnouncement(id);
+      setActionSuccessMsg('Tangazo limeondolewa.');
       setTimeout(() => setActionSuccessMsg(''), 3000);
       loadAllData();
+    } catch (error) {
+      setActionErrorMsg(error.message);
     }
   };
 
@@ -228,7 +248,7 @@ export const AdminDashboard = () => {
             </span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-            Msimamizi: {user?.fullName || 'ABDALLAH SAIDY'}
+            Msimamizi: {user?.fullName || 'Administrator'}
           </h2>
           <p className="text-purple-200 text-xs sm:text-sm mt-1">
             Dhibiti vyakula vya mgahawa, thibitisha malipo, na mgaie dereva (Delivery Staff) kila oda ya mteja.
@@ -418,7 +438,7 @@ export const AdminDashboard = () => {
                           TSh {order.totalAmount.toLocaleString()}
                         </div>
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                          ✓ {order.paymentMethod}
+                          {order.paymentStatus === 'DEMO_SUCCEEDED' ? 'DEMO (NO CHARGE)' : order.paymentStatus} · {order.paymentMethod}
                         </span>
                       </td>
 
